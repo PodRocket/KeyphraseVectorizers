@@ -397,6 +397,20 @@ class _KeyphraseVectorizerMixin():
                     nlp = spacy.load(spacy_pipeline,
                                      exclude=spacy_exclude)
 
+            # --- Custom tokenizer to treat hyphenated words as single tokens ---
+            from spacy.tokenizer import Tokenizer
+            from spacy.util import compile_infix_regex
+            # Remove all infix patterns that split on hyphens
+            infixes = [x for x in nlp.Defaults.infixes if '-' not in x]
+            infix_re = compile_infix_regex(infixes)
+            nlp.tokenizer = Tokenizer(
+                nlp.vocab,
+                rules=nlp.Defaults.tokenizer_exceptions,
+                prefix_search=nlp.tokenizer.prefix_search,
+                suffix_search=nlp.tokenizer.suffix_search,
+                infix_finditer=infix_re.finditer,
+            )
+
         if workers != 1:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -427,6 +441,8 @@ class _KeyphraseVectorizerMixin():
                 pos_tuples.extend([(word.text, word.tag_) for word in tagged_doc if word.text])
         else:
             pos_tuples = custom_pos_tagger(raw_documents=document_list)
+
+        #print(pos_tuples)
 
         # get the original documents after they were processed by a tokenizer and a POS tagger
         processed_docs = []
